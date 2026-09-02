@@ -8,25 +8,161 @@ const discordServerName = document.querySelector('#discord-server-name');
 const discordOnlineCount = document.querySelector('#discord-online-count');
 const discordMembers = document.querySelector('#discord-members');
 const discordJoin = document.querySelector('#discord-join');
+const audioControls = document.querySelector('#audio-controls');
+const audioToggle = document.querySelector('#audio-toggle');
+const audioIcon = document.querySelector('#audio-icon');
+const audioButtonText = document.querySelector('#audio-button-text');
+const audioVolume = document.querySelector('#audio-volume');
+const audioVolumeValue = document.querySelector('#audio-volume-value');
+const audioState = document.querySelector('#audio-state');
 const settings = document.querySelector('.settings');
 const settingsToggle = document.querySelector('#settings-toggle');
 const settingsPanel = document.querySelector('#settings-panel');
 const showAllSettings = document.querySelector('#show-all-settings');
 const settingInputs = [...document.querySelectorAll('[data-ui-setting]')];
+let serverBands = Array(64).fill(0);
 let target = Array(64).fill(0);
 let shown = Array(64).fill(0);
 let connected = false;
 let active = false;
+let liveSocket = null;
+let audioEnabled = false;
+let audioContext = null;
+let audioGain = null;
+let audioAnalyser = null;
+let audioFormat = { sampleRate: 24000, channels: 1, format: 's16le' };
+let nextAudioTime = 0;
+let audioStateTimer = null;
+const scheduledAudio = new Set();
 
 const uiItems = {
   crown: document.querySelector('.crown'),
   status,
+  audioControls,
   nowPlaying: document.querySelector('.now-playing'),
   copyHint,
   discordOnline: document.querySelector('.discord-online'),
   discordMembers,
   discordJoin
 };
+
+function readStoredVolume() {
+  try {
+    const stored = localStorage.getItem('kings-equalizer-volume');
+    if (stored === null) return 70;
+    const saved = Number(stored);
+    return Number.isFinite(saved) ? Math.min(100, Math.max(0, saved)) : 70;
+  } catch {
+    return 70;
+  }
+}
+
+function setAudioState(text, live = false) {
+  audioState.textContent = text;
+  audioState.classList.toggle('is-live', live);
+}
+
+function renderAudioControls() {
+  audioToggle.classList.toggle('is-playing', audioEnabled);
+  audioIcon.textContent = audioEnabled ? '■' : '▶';
+  audioButtonText.textContent = audioEnabled ? 'MUTE AUDIO' : 'ENABLE AUDIO';
+}
+
+function updateStatusText() {
+  if (!connected) status.textContent = 'Analyzer disconnected — retrying…';
+  else if (!active) status.textContent = 'Waiting for Rythm…';
+  else status.textContent = audioEnabled ? '♫ Rythm audio synced ♫' : '♫ Rythm reactive ♫';
+}
+
+function resetAudioQueue() {
+  for (const source of scheduledAudio) {
+    try { source.stop(); } catch { /* Source already stopped. */ }
+  }
+  scheduledAudio.clear();
+  nextAudioTime = 0;
+}
+
+function sendAudioSubscription() {
+  if (liveSocket?.readyState === WebSocket.OPEN) {
+    liveSocket.send(JSON.stringify({ type: 'audio-subscribe', enabled: audioEnabled }));
+  }
+}
+
+async function ensureAudioGraph() {
+  if (!audioContext) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) throw new Error('This browser does not support live audio.');
+    audioContext = new AudioContextClass({ latencyHint: 'interactive' });
+    audioGain = audioContext.createGain();
+    audioAnalyser = audioContext.createAnalyser();
+    audioAnalyser.fftSize = 2048;
+    audioAnalyser.smoothingTimeConstant = .58;
+    audioAnalyser.connect(audioGain);
+    audioGain.connect(audioContext.destination);
+  }
+  audioGain.gain.value = Number(audioVolume.value) / 100;
+  await audioContext.resume();
+}
+
+function enqueueAudio(arrayBuffer) {
+  if (!audioEnabled || !audioContext || audioContext.state !== 'running') return;
+  const view = new DataView(arrayBuffer);
+  const sampleCount = Math.floor(view.byteLength / 2);
+  if (!sampleCount) return;
+  const buffer = audioContext.createBuffer(1, sampleCount, audioFormat.sampleRate);
+  const channel = buffer.getChannelData(0);
+  for (let i = 0; i < sampleCount; i += 1) channel[i] = view.getInt16(i * 2, true) / 32768;
+
+  const now = audioContext.currentTime;
+  if (nextAudioTime < now + .04 || nextAudioTime > now + .85) {
+    resetAudioQueue();
+    nextAudioTime = now + .22;
+  }
+
+  const source = audioContext.createBufferSource();
+  source.buffer = buffer;
+  source.connect(audioAnalyser);
+  source.addEventListener('ended', () => scheduledAudio.delete(source), { once: true });
+  scheduledAudio.add(source);
+  source.start(nextAudioTime);
+  nextAudioTime += buffer.duration;
+
+  setAudioState('SYNCED LIVE', true);
+  clearTimeout(audioStateTimer);
+  audioStateTimer = setTimeout(() => {
+    if (audioEnabled) setAudioState(active ? 'WAITING FOR AUDIO' : 'WAITING FOR RYTHM');
+  }, 900);
+}
+
+async function setAudioEnabled(enabled) {
+  if (enabled) {
+    try {
+      await ensureAudioGraph();
+    } catch (error) {
+      setAudioState(error.message);
+      return;
+    }
+  } else {
+    resetAudioQueue();
+  }
+  audioEnabled = enabled;
+  renderAudioControls();
+  setAudioState(enabled ? (active ? 'WAITING FOR AUDIO' : 'WAITING FOR RYTHM') : 'CLICK TO LISTEN');
+  sendAudioSubscription();
+  updateStatusText();
+  if (!enabled) target = serverBands;
+}
+
+const initialVolume = readStoredVolume();
+audioVolume.value = String(initialVolume);
+audioVolumeValue.value = `${initialVolume}%`;
+audioToggle.addEventListener('click', () => setAudioEnabled(!audioEnabled));
+audioVolume.addEventListener('input', () => {
+  const volume = Number(audioVolume.value);
+  audioVolumeValue.value = `${volume}%`;
+  if (audioGain) audioGain.gain.value = volume / 100;
+  try { localStorage.setItem('kings-equalizer-volume', String(volume)); } catch { /* Optional preference. */ }
+});
 
 function readUiSettings() {
   try {
@@ -95,10 +231,31 @@ resize();
 
 function connect() {
   const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`);
-  socket.onopen = () => { connected = true; status.textContent = 'Waiting for Rythm…'; };
+  liveSocket = socket;
+  socket.binaryType = 'arraybuffer';
+  socket.onopen = () => {
+    connected = true;
+    sendAudioSubscription();
+    updateStatusText();
+  };
   socket.onmessage = event => {
+    if (event.data instanceof ArrayBuffer) {
+      enqueueAudio(event.data);
+      return;
+    }
     const message = JSON.parse(event.data);
-    if (message.type === 'spectrum') target = message.bands;
+    if (message.type === 'spectrum') {
+      serverBands = message.bands;
+      if (!audioEnabled) target = serverBands;
+    }
+    if (message.type === 'audio-format') audioFormat = message;
+    if (message.type === 'audio-subscription' && message.enabled === false && audioEnabled) {
+      audioEnabled = false;
+      resetAudioQueue();
+      renderAudioControls();
+      setAudioState(message.error || 'AUDIO DISABLED');
+      updateStatusText();
+    }
     if (message.type === 'track' && message.track) {
       songTitleText.textContent = message.track.title;
       if (message.track.url) {
@@ -111,16 +268,22 @@ function connect() {
       updateTitleOverflow();
     }
     if ('active' in message) active = message.active;
-    status.textContent = active ? '♫ Rythm reactive ♫' : 'Waiting for Rythm…';
+    updateStatusText();
   };
   socket.onclose = () => {
+    if (liveSocket !== socket) return;
     connected = false;
     active = false;
-    status.textContent = 'Analyzer disconnected — retrying…';
+    resetAudioQueue();
+    if (audioEnabled) setAudioState('STREAM DISCONNECTED');
+    updateStatusText();
     setTimeout(connect, 1500);
   };
 }
 connect();
+setInterval(() => {
+  if (liveSocket?.readyState === WebSocket.OPEN) liveSocket.send(JSON.stringify({ type: 'ping' }));
+}, 30_000);
 
 function updateTitleOverflow() {
   songTitle.classList.remove('is-scrolling');
@@ -203,7 +366,32 @@ async function updateDiscordWidget() {
 updateDiscordWidget();
 setInterval(updateDiscordWidget, 30_000);
 
+function updateBandsFromPlayback() {
+  if (!audioEnabled || !audioAnalyser || !audioContext) {
+    target = serverBands;
+    return;
+  }
+  const frequencies = new Uint8Array(audioAnalyser.frequencyBinCount);
+  audioAnalyser.getByteFrequencyData(frequencies);
+  const bandCount = serverBands.length || 64;
+  const nyquist = audioContext.sampleRate / 2;
+  const minHz = 35;
+  const maxHz = Math.min(12000, nyquist);
+  const output = [];
+  for (let band = 0; band < bandCount; band += 1) {
+    const lowHz = minHz * ((maxHz / minHz) ** (band / bandCount));
+    const highHz = minHz * ((maxHz / minHz) ** ((band + 1) / bandCount));
+    const start = Math.max(1, Math.floor((lowHz / nyquist) * frequencies.length));
+    const end = Math.max(start + 1, Math.ceil((highHz / nyquist) * frequencies.length));
+    let peak = 0;
+    for (let i = start; i < Math.min(end, frequencies.length); i += 1) peak = Math.max(peak, frequencies[i]);
+    output.push(Math.pow(peak / 255, 1.18));
+  }
+  target = output;
+}
+
 function draw(time) {
+  updateBandsFromPlayback();
   const w = innerWidth;
   const h = innerHeight;
   ctx.clearRect(0, 0, w, h);

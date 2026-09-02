@@ -8,6 +8,18 @@
 </head>
 <body>
   <canvas id="visualizer"></canvas>
+  <section id="audio-controls" class="audio-controls" aria-label="Live Rythm audio controls">
+    <button id="audio-toggle" class="audio-toggle" type="button">
+      <span id="audio-icon" aria-hidden="true">▶</span>
+      <strong id="audio-button-text">ENABLE AUDIO</strong>
+    </button>
+    <label class="volume-control">
+      <span>VOL</span>
+      <input id="audio-volume" type="range" min="0" max="100" value="70" aria-label="Website audio volume">
+      <output id="audio-volume-value" for="audio-volume">70%</output>
+    </label>
+    <small id="audio-state">CLICK TO LISTEN</small>
+  </section>
   <div class="settings">
     <button id="settings-toggle" class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-panel">
       <span aria-hidden="true">⚙</span> SETTINGS
@@ -19,6 +31,7 @@
       </div>
       <label class="setting-row"><span>Royal crown</span><input type="checkbox" data-ui-setting="crown" checked><i></i></label>
       <label class="setting-row"><span>Rythm status</span><input type="checkbox" data-ui-setting="status" checked><i></i></label>
+      <label class="setting-row"><span>Audio controls</span><input type="checkbox" data-ui-setting="audioControls" checked><i></i></label>
       <label class="setting-row"><span>Now playing</span><input type="checkbox" data-ui-setting="nowPlaying" checked><i></i></label>
       <label class="setting-row"><span>Copy notice</span><input type="checkbox" data-ui-setting="copyHint" checked><i></i></label>
       <label class="setting-row"><span>Discord online count</span><input type="checkbox" data-ui-setting="discordOnline" checked><i></i></label>
