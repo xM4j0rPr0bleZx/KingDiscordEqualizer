@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: kingdiscordequalizer
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: CLIENT_ID
+        sync: false
+      - key: GUILD_ID
+        sync: false
+      - key: VOICE_CHANNEL_ID
+        sync: false
+      - key: RYTHM_USER_ID
+        sync: false
+      - key: RYTHM_TEXT_CHANNEL_ID
+        sync: false
+      - key: BANDS
+        value: "64"
+      - key: VISUALIZER_GAIN
+        value: "0.72"
+      - key: MAX_AUDIO_LISTENERS
+        value: "8"

@@ -61,10 +61,12 @@ Website visitors must press **Enable Audio** before sound plays. Browsers do not
 ## Render deployment
 
 1. Upload this folder to a private GitHub repository. Do not upload `.env`.
-2. Create a Render Web Service from that repository.
-3. Set the build command to `npm ci` and the start command to `npm start`.
-4. Add the environment variables above in Render's Environment page. Render supplies `PORT` automatically.
-5. Deploy and open the assigned `https://...onrender.com` address.
+2. In Render, choose **New → Blueprint** and select that repository.
+3. Render automatically reads `render.yaml` from the repository root.
+4. Enter every secret value Render requests. Never put the Discord token in `render.yaml` or GitHub.
+5. Apply the Blueprint and open the assigned `https://...onrender.com` address.
+
+The Blueprint supplies the build command, start command, health check, free plan, and safe non-secret defaults. Render supplies `PORT` automatically.
 
 ## Troubleshooting
 
