@@ -1,6 +1,6 @@
 # KingEqualizer
 
-A Discord bot that joins a voice channel, listens only to Rythm's incoming audio, performs real-time FFT analysis, and displays a smooth rainbow spectrum at `http://localhost:3000`. It also reads Rythm's Now Playing messages and displays the current song beneath the EQ bars.
+A Discord bot that joins a voice channel, listens only to Rythm's incoming audio, performs real-time FFT analysis, and displays a crimson live spectrum at `http://localhost:3000`. It also reads Rythm's Now Playing messages, displays the current song, and can stream synchronized opt-in audio to the website.
 
 > This uses Discord audio reception, which Discord does not officially document. It may need dependency updates if Discord changes voice behavior. It does **not** use a self-bot or user token.
 
@@ -37,6 +37,8 @@ RYTHM_TEXT_CHANNEL_ID=rythms_text_channel_id
 PORT=3000
 BANDS=64
 VISUALIZER_GAIN=0.72
+# Optional website audio listener limit (default: 8, maximum: 25):
+MAX_AUDIO_LISTENERS=8
 ```
 
 `VISUALIZER_GAIN` controls bar sensitivity. Try `0.50` for shorter bars or
@@ -53,6 +55,18 @@ Double-click `start.bat`. The first run installs dependencies. Then open:
 http://localhost:3000
 
 Press `F11` for fullscreen. The bot auto-joins the configured channel. Server managers can also use `/equalizer start`, `/equalizer stop`, and `/equalizer display`.
+
+Website visitors must press **Enable Audio** before sound plays. Browsers do not permit automatic audio. The website uses the same decoded Rythm audio for playback and its local spectrum, keeping the sound and bars synchronized.
+
+## Render deployment
+
+1. Upload this folder to a private GitHub repository. Do not upload `.env`.
+2. In Render, choose **New → Blueprint** and select that repository.
+3. Render automatically reads `render.yaml` from the repository root.
+4. Enter every secret value Render requests. Never put the Discord token in `render.yaml` or GitHub.
+5. Apply the Blueprint and open the assigned `https://...onrender.com` address.
+
+The Blueprint supplies the build command, start command, health check, free plan, and safe non-secret defaults. Render supplies `PORT` automatically.
 
 ## Troubleshooting
 

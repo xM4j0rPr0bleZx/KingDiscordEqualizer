@@ -26,3 +26,5 @@ services:
         value: "64"
       - key: VISUALIZER_GAIN
         value: "0.72"
+      - key: MAX_AUDIO_LISTENERS
+        value: "8"
