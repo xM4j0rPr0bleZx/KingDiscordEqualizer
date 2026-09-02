@@ -32,11 +32,10 @@ const config = {
   port: Number(process.env.PORT) || 3000,
   bandCount: Math.min(128, Math.max(16, Number(process.env.BANDS) || 64)),
   visualizerGain: Math.min(2, Math.max(0.1, Number(process.env.VISUALIZER_GAIN) || 0.72)),
-  maxAudioListeners: Math.min(25, Math.max(1, Number(process.env.MAX_AUDIO_LISTENERS) || 8)),
 };
 
 for (const [key, value] of Object.entries(config)) {
-  if (['port', 'bandCount', 'visualizerGain', 'maxAudioListeners', 'rythmTextChannelId'].includes(key)) continue;
+  if (['port', 'bandCount', 'visualizerGain', 'rythmTextChannelId'].includes(key)) continue;
   if (!value) {
     console.error(`Missing ${key}. Fill in every required value in .env.`);
     process.exit(1);
@@ -76,7 +75,6 @@ app.get('/api/discord-widget', async (_req, res) => {
 });
 const server = http.createServer(app);
 const sockets = new WebSocketServer({ server });
-const AUDIO_SAMPLE_RATE = 24000;
 
 const analyzer = {
   active: false,
@@ -84,7 +82,6 @@ const analyzer = {
   decoder: null,
   carry: Buffer.alloc(0),
   pcm: [],
-  audioPhase: 0,
   timer: null,
   latest: Array(config.bandCount).fill(0),
 };
@@ -95,24 +92,6 @@ function broadcast(payload) {
   const data = JSON.stringify(payload);
   for (const socket of sockets.clients) {
     if (socket.readyState === WebSocket.OPEN) socket.send(data);
-  }
-}
-
-function hasAudioSubscribers() {
-  for (const socket of sockets.clients) {
-    if (socket.readyState === WebSocket.OPEN && socket.audioSubscribed) return true;
-  }
-  return false;
-}
-
-function broadcastAudio(samples) {
-  if (!samples.length) return;
-  const packet = Buffer.allocUnsafe(samples.length * 2);
-  for (let i = 0; i < samples.length; i += 1) packet.writeInt16LE(samples[i], i * 2);
-  for (const socket of sockets.clients) {
-    if (socket.readyState !== WebSocket.OPEN || !socket.audioSubscribed) continue;
-    if (socket.bufferedAmount > 512 * 1024) continue;
-    socket.send(packet, { binary: true });
   }
 }
 
@@ -202,7 +181,6 @@ function stopAnalyzer() {
   analyzer.decoder = null;
   analyzer.carry = Buffer.alloc(0);
   analyzer.pcm = [];
-  analyzer.audioPhase = 0;
   clearInterval(analyzer.timer);
   analyzer.timer = null;
   analyzer.latest.fill(0);
@@ -259,16 +237,11 @@ function startAnalyzer(connection) {
       const chunk = Buffer.from(decoded.buffer, decoded.byteOffset, decoded.byteLength);
       const data = Buffer.concat([analyzer.carry, chunk]);
       const usable = data.length - (data.length % 4);
-      const audioSamples = hasAudioSubscribers() ? [] : null;
       for (let offset = 0; offset < usable; offset += 4) {
-        const mono = (data.readInt16LE(offset) + data.readInt16LE(offset + 2)) / 2;
-        analyzer.pcm.push(mono);
-        if (audioSamples && analyzer.audioPhase === 0) audioSamples.push(Math.round(mono));
-        analyzer.audioPhase = (analyzer.audioPhase + 1) % 2;
+        analyzer.pcm.push((data.readInt16LE(offset) + data.readInt16LE(offset + 2)) / 2);
       }
       analyzer.carry = data.subarray(usable);
       if (analyzer.pcm.length > 8192) analyzer.pcm.splice(0, analyzer.pcm.length - 8192);
-      if (audioSamples?.length) broadcastAudio(audioSamples);
     } catch (error) {
       console.error(`Opus packet skipped: ${error.message}`);
     }
@@ -371,42 +344,8 @@ client.on('voiceStateUpdate', (oldState, newState) => {
 });
 
 sockets.on('connection', socket => {
-  socket.audioSubscribed = false;
   socket.send(JSON.stringify({ type: 'status', active: analyzer.active }));
   socket.send(JSON.stringify({ type: 'track', track: currentTrack }));
-  socket.send(JSON.stringify({
-    type: 'audio-format',
-    format: 's16le',
-    channels: 1,
-    sampleRate: AUDIO_SAMPLE_RATE,
-  }));
-  socket.on('message', (data, isBinary) => {
-    if (isBinary) return;
-    try {
-      const message = JSON.parse(data.toString());
-      if (message.type === 'ping') {
-        socket.send(JSON.stringify({ type: 'pong' }));
-        return;
-      }
-      if (message.type !== 'audio-subscribe') return;
-      const enable = message.enabled === true;
-      const listenerCount = [...sockets.clients].filter(client =>
-        client !== socket && client.readyState === WebSocket.OPEN && client.audioSubscribed
-      ).length;
-      if (enable && !socket.audioSubscribed && listenerCount >= config.maxAudioListeners) {
-        socket.send(JSON.stringify({
-          type: 'audio-subscription',
-          enabled: false,
-          error: 'The live audio listener limit has been reached.',
-        }));
-        return;
-      }
-      socket.audioSubscribed = enable;
-      socket.send(JSON.stringify({ type: 'audio-subscription', enabled: enable }));
-    } catch {
-      // Ignore malformed browser messages.
-    }
-  });
 });
 
 server.listen(config.port, () => console.log(`Visualizer running at http://localhost:${config.port}`));
