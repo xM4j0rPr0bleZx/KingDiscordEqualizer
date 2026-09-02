@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>𓆩༒⛧King's Equalizer⛧༒𓆪</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="visualizer"></canvas>
+  <section class="overlay">
+    <div class="crown">♛</div>
+    <h1>𓆩༒⛧King's Equalizer⛧༒𓆪</h1>
+    <div class="rule"><span></span><b>♚ KING'S CASTLE ♚</b><span></span></div>
+    <p id="status">Connecting to analyzer…</p>
+  </section>
+  <div class="now-playing-wrap">
+    <section class="now-playing" aria-live="polite">
+      <span>NOW PLAYING</span>
+      <a id="song-title" target="_blank" rel="noreferrer"><span id="song-title-text">Waiting for Rythm…</span></a>
+      <small>Detected from Rythm's Discord message</small>
+    </section>
+    <p id="copy-hint" class="copy-hint"><strong>𓆩CLICK ON THE TITLE TO COPY IT𓆪</strong></p>
+  </div>
+  <aside class="discord-widget" aria-label="King's Castle Discord server">
+    <header class="discord-widget-header">
+      <div class="discord-crown">♛</div>
+      <div>
+        <span>DISCORD SERVER</span>
+        <h2 id="discord-server-name">👑King's Castle👑</h2>
+      </div>
+    </header>
+    <div class="discord-online"><i></i><strong id="discord-online-count">—</strong>&nbsp; ONLINE</div>
+    <div id="discord-members" class="discord-members">
+      <p>Loading the royal court…</p>
+    </div>
+        <a id="discord-join" class="discord-join" target="_blank" rel="noreferrer" hidden>ENTER THE CASTLE</a>
+  </aside>
+  <script src="visualizer.js"></script>
+</body>
+</html>

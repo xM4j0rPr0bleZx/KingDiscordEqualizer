@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>𓆩༒⛧King's Equalizer⛧༒𓆪</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="visualizer"></canvas>
+  <div class="settings">
+    <button id="settings-toggle" class="settings-toggle" type="button" aria-expanded="false" aria-controls="settings-panel">
+      <span aria-hidden="true">⚙</span> SETTINGS
+    </button>
+    <section id="settings-panel" class="settings-panel" aria-label="Display settings" hidden>
+      <div class="settings-heading">
+        <span>DISPLAY SETTINGS</span>
+        <small>Choose what stays visible</small>
+      </div>
+      <label class="setting-row"><span>Royal crown</span><input type="checkbox" data-ui-setting="crown" checked><i></i></label>
+      <label class="setting-row"><span>Rythm status</span><input type="checkbox" data-ui-setting="status" checked><i></i></label>
+      <label class="setting-row"><span>Now playing</span><input type="checkbox" data-ui-setting="nowPlaying" checked><i></i></label>
+      <label class="setting-row"><span>Copy notice</span><input type="checkbox" data-ui-setting="copyHint" checked><i></i></label>
+      <label class="setting-row"><span>Discord online count</span><input type="checkbox" data-ui-setting="discordOnline" checked><i></i></label>
+      <label class="setting-row"><span>Discord members</span><input type="checkbox" data-ui-setting="discordMembers" checked><i></i></label>
+      <label class="setting-row"><span>Discord join button</span><input type="checkbox" data-ui-setting="discordJoin" checked><i></i></label>
+      <button id="show-all-settings" class="show-all-settings" type="button">SHOW ALL</button>
+      <p class="settings-note">Titles and equalizer always remain visible.</p>
+    </section>
+  </div>
+  <section class="overlay">
+    <div class="crown">♛</div>
+    <h1>𓆩༒⛧King's Equalizer⛧༒𓆪</h1>
+    <div class="rule"><span></span><b>♚ KING'S CASTLE ♚</b><span></span></div>
+    <p id="status">Connecting to analyzer…</p>
+  </section>
+  <div class="now-playing-wrap">
+    <section class="now-playing" aria-live="polite">
+      <span>NOW PLAYING</span>
+      <a id="song-title" target="_blank" rel="noreferrer"><span id="song-title-text">Waiting for Rythm…</span></a>
+      <small>Detected from Rythm's Discord message</small>
+    </section>
+    <p id="copy-hint" class="copy-hint"><strong>𓆩CLICK ON THE TITLE TO COPY IT𓆪</strong></p>
+  </div>
+  <aside class="discord-widget" aria-label="King's Castle Discord server">
+    <header class="discord-widget-header">
+      <div class="discord-crown">♛</div>
+      <div>
+        <span>DISCORD SERVER</span>
+        <h2 id="discord-server-name">👑King's Castle👑</h2>
+      </div>
+    </header>
+    <div class="discord-online"><i></i><strong id="discord-online-count">—</strong>&nbsp; ONLINE</div>
+    <div id="discord-members" class="discord-members">
+      <p>Loading the royal court…</p>
+    </div>
+    <a id="discord-join" class="discord-join" target="_blank" rel="noreferrer" hidden>ENTER THE CASTLE</a>
+  </aside>
+  <script src="visualizer.js"></script>
+</body>
+</html>
